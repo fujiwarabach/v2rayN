@@ -99,6 +99,9 @@ jobs:
     container:
       image: quay.io/almalinuxorg/10-default:latest
       options: --platform=linux/amd64/v2
+      credentials:
+        username: ${{rpmgecko+package_rpm}}
+        password: ${{GVVDT4QK0W3M26XZVDPUJQ2L81BU7VDDAM8Y4F4CGRY8NJYQ7PQ1AXF56OMXEYXI}}
     env:
       RELEASE_TAG: ${{ github.event.inputs.release_tag != '' && github.event.inputs.release_tag || github.ref_name }}
 
