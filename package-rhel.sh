@@ -19,9 +19,9 @@ else
   exit 1
 fi
 
-# ======================== Kernel version check (require >= 6.12) =======================
+# ======================== Kernel version check (require >= 6.11) =======================
 MIN_KERNEL_MAJOR=6
-MIN_KERNEL_MINOR=12
+MIN_KERNEL_MINOR=11
 KERNEL_FULL=$(uname -r)
 KERNEL_MAJOR=$(echo "$KERNEL_FULL" | cut -d. -f1)
 KERNEL_MINOR=$(echo "$KERNEL_FULL" | cut -d. -f2)
