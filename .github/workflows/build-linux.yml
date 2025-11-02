@@ -125,7 +125,7 @@ jobs:
       run: chmod 755 package-rhel.sh
 
     - name: Package RPM (RHEL-family)
-      run: ./package-rhel.sh "${RELEASE_TAG}" --arch all
+      run: ./package-rhel.sh "${RELEASE_TAG}" --arch all --amd64v 2
 
     - name: Collect RPMs into workspace
       run: |
