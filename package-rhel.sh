@@ -529,12 +529,20 @@ build_for_arch() {
   dotnet clean "$PROJECT" -c Release
   rm -rf "$(dirname "$PROJECT")/bin/Release/net8.0" || true
 
+  # --- Add x64v2 target for x64 architecture builds ---
+  if [[ "$short" == "x64" ]]; then
+    PLATFORM_TARGET="-p:PlatformTarget=x64v2"
+  else
+    PLATFORM_TARGET=""
+  fi
+
   dotnet restore "$PROJECT"
   dotnet publish "$PROJECT" \
     -c Release -r "$rid" \
     -p:PublishSingleFile=false \
     -p:SelfContained=true \
-    -p:IncludeNativeLibrariesForSelfExtract=true
+    -p:IncludeNativeLibrariesForSelfExtract=true \
+    "$PLATFORM_TARGET"
 
   # Per-arch variables (scoped)
   local RID_DIR="$rid"
