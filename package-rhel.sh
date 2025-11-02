@@ -43,6 +43,7 @@ AUTOSTART=0              # 1 = enable system-wide autostart (/etc/xdg/autostart)
 FORCE_NETCORE=0          # --netcore => skip archive bundle, use separate downloads
 ARCH_OVERRIDE=""         # --arch x64|arm64|all (optional compile target)
 BUILD_FROM=""            # --buildfrom 1|2|3 to select channel non-interactively
+AMD64V=""                # --amd64v 2|3|4 (only affects x64)
 
 # If the first argument starts with --, do not treat it as a version number
 if [[ "${VERSION_ARG:-}" == --* ]]; then
@@ -61,6 +62,7 @@ while [[ $# -gt 0 ]]; do
     --netcore)       FORCE_NETCORE=1; shift;;
     --arch)          ARCH_OVERRIDE="${2:-}"; shift 2;;
     --buildfrom)     BUILD_FROM="${2:-}"; shift 2;;
+    --amd64v)        AMD64V="${2:-}"; shift 2;;   # <--- 新增：仅影响 x64
     *)
       if [[ -z "${VERSION_ARG:-}" ]]; then VERSION_ARG="$1"; fi
       shift;;
@@ -529,20 +531,44 @@ build_for_arch() {
   dotnet clean "$PROJECT" -c Release
   rm -rf "$(dirname "$PROJECT")/bin/Release/net8.0" || true
 
-  # --- Add x64v2 target for x64 architecture builds ---
-  if [[ "$short" == "x64" ]]; then
-    PLATFORM_TARGET="-p:PlatformTarget=x64v2"
-  else
-    PLATFORM_TARGET=""
+  dotnet restore "$PROJECT"
+
+  # ---- ONLY for x64: apply --amd64v N to constrain Crossgen2 ISA (if provided) ----
+  EXTRA_ISA_ARGS=()
+  if [[ "$short" == "x64" && -n "${AMD64V:-}" ]]; then
+    case "$AMD64V" in
+      2)
+        # x86-64-v2: SSE3, SSSE3, SSE4.1, SSE4.2, POPCNT (+ base)
+        VSET=(base sse3 ssse3 sse41 sse42 popcnt)
+        ;;
+      3)
+        # x86-64-v3: v2 + AVX, AVX2, BMI1/2, FMA, F16C, LZCNT, MOVBE
+        VSET=(base sse3 ssse3 sse41 sse42 popcnt avx avx2 bmi1 bmi2 fma f16c lzcnt movbe)
+        ;;
+      4)
+        # x86-64-v4: v3 + 常见 AVX-512 子集（按需扩展）
+        VSET=(base sse3 ssse3 sse41 sse42 popcnt avx avx2 bmi1 bmi2 fma f16c lzcnt movbe avx512f avx512cd avx512dq avx512bw avx512vl)
+        ;;
+      *)
+        echo "[ERROR] --amd64v expects 2|3|4 (got '${AMD64V}')"; exit 1;;
+    esac
+    ISTR=""
+    for i in "${VSET[@]}"; do ISTR+=" --instruction-set $i"; done
+    EXTRA_ISA_ARGS=(
+      -p:PublishReadyToRun=true
+      -p:PublishReadyToRunUseCrossgen2=true
+      -p:PublishReadyToRunShowWarnings=true
+      -p:PublishReadyToRunExtraArgs="$ISTR"
+    )
+    echo "[INFO] x64 ISA baseline constrained by --amd64v ${AMD64V}"
   fi
 
-  dotnet restore "$PROJECT"
   dotnet publish "$PROJECT" \
     -c Release -r "$rid" \
     -p:PublishSingleFile=false \
     -p:SelfContained=true \
     -p:IncludeNativeLibrariesForSelfExtract=true \
-    "$PLATFORM_TARGET"
+    "${EXTRA_ISA_ARGS[@]}"
 
   # Per-arch variables (scoped)
   local RID_DIR="$rid"
